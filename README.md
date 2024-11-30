@@ -24,7 +24,7 @@ This project is intended for educational purposes and to demonstrate how AES enc
 - `chmod +x client.py server.py`
 
 ## Usage (for server)
-- `./server.py -i 0.0.0.0 -p 443` ***(put any port you want)***
+- `./server.py -i 0.0.0.0 -p 443` ***(put any IP and Port you want)***
 
 ## Usage (for client)
 - `./client -s SERVER_IP -p PORT -k AES_KEY -v AES_IV` ***(all proportioned by the server)***
