@@ -8,3 +8,5 @@ AESRevShell is a secure reverse shell tool that utilizes AES encryption (CBC mod
 - **Command execution:** The server sends commands to the client, which are executed and returned securely.
 
 This project is intended for educational purposes and to demonstrate how AES encryption can be used in real-time communication for security testing and penetration testing scenarios.
+---------------------
+
