@@ -4,7 +4,9 @@ import socket
 import argparse
 import os
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.primitives import padding, hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.backends import default_backend
 
 def aes_encrypt(data, key, iv):
@@ -22,25 +24,40 @@ def aes_decrypt(data, key, iv):
     return unpadder.update(decrypted_data) + unpadder.finalize()
 
 def start_server(ip, port):
-    key = os.urandom(32)
-    iv = os.urandom(16)
-    print(f"[*] AES Key: {key.hex()}")
-    print(f"[*] AES IV: {iv.hex()}")
-    
+    server_private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
+    server_public_key = server_private_key.public_key()
+
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((ip, port))
     server.listen(1)
     print(f"[*] Listening on {ip}:{port}")
     client_socket, client_address = server.accept()
     print(f"[*] Connection established with {client_address}")
+
     try:
-        client_socket.send(b"KEY_CHECK")
-        client_key_iv = client_socket.recv(1024)
-        if client_key_iv != key + iv:
-            print("[!] Client provided incorrect key/IV. Closing connection.")
-            client_socket.close()
-            return
-        print("[*] Client key/IV validated. Communication started.")
+        client_socket.send(server_public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        ))
+
+        client_public_key_bytes = client_socket.recv(4096)
+        client_public_key = serialization.load_pem_public_key(
+            client_public_key_bytes,
+            backend=default_backend()
+        )
+
+        shared_key = server_private_key.exchange(ec.ECDH(), client_public_key)
+        derived_key = HKDF(
+            algorithm=hashes.SHA256(),
+            length=48,
+            salt=None,
+            info=b'handshake data',
+            backend=default_backend()
+        ).derive(shared_key)
+
+        key = derived_key[:32]
+        iv = derived_key[32:48]
+
         while True:
             command = input("\n[Server] Enter command: ").strip()
             if command.lower() == "exit":

