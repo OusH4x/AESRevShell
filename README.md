@@ -10,7 +10,17 @@ By leveraging **ECDH + HKDF** for key exchange and **AES encryption**, this tool
 - **Client-Server Architecture:** Reverse shell functionality with encrypted command execution.
 - **Resistance to MITM:** ECDH ensures that even if an attacker intercepts the communication, they cannot decrypt the data.
 - **Bypass of IDS/IPS/SIEM:** AES encryption hides the command and control traffic, making it difficult to detect by network monitoring systems.
-
+```mermaid
+sequenceDiagram
+   participant Server
+   participant Client
+   Server->>Client: Public Key (ECDH)
+   Client->>Server: Public Key (ECDH)
+   Note right of Server: Derives shared secret
+   Note left of Client: Derives shared secret
+   Server->>Client: Encrypted (AES-GCM) Command
+   Client->>Server: Encrypted Response
+```
 ### **How It Works:**
 1. **Key Exchange:**
    - The server and client generate their own ECDH key pairs (private and public keys).
