@@ -32,8 +32,8 @@ sequenceDiagram
 ```
 
 ## **Demos**
-![image](https://github.com/user-attachments/assets/2a1486f1-7dfb-44fd-b0a8-893816e6de6f)
-![image](https://github.com/user-attachments/assets/ec125041-cbcd-435a-9949-00a60fe581c1)
+![image](https://github.com/user-attachments/assets/6abbe459-e4bb-44e6-b773-d7a5b02266b0)
+![image](https://github.com/user-attachments/assets/45f14aaf-d9d1-486f-b364-540a69095bbb)
 
 ## **Installation**
 1. Install dependencies:
