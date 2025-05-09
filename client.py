@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
-import socket, argparse, subprocess, io
+import socket, argparse, subprocess, io, os
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.backends import default_backend
 from PIL import Image
-import os, subprocess
 
 def try_install_mss():
     try:
