@@ -82,4 +82,4 @@ This tool is intended for **educational purposes** and **authorized penetration 
 Contributions are welcome! If you have any suggestions, improvements, or bug fixes, feel free to open an issue or submit a pull request.
 
 ## **Author**
-- [OusCyb3rH4ck](https://github.com/OusCyb3rH4ck)
+- [OusH4x](https://github.com/OusH4x)
