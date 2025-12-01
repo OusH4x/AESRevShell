@@ -72,6 +72,7 @@ Connect the client (victim) to the server:
 ### Special commands
 
 - `screenshot` - Captures target screen
+- `download FILE(S)` - Download one or more files
 - `exit` - Terminates session
 - `CTRL + L` - Clears console
 
